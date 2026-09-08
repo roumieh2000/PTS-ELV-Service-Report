@@ -15,8 +15,10 @@ export interface ServiceReport {
   resolutionStatus: ResolutionStatus
   progTechName: string
   progTechDate: string
+  progTechSignature?: string
   clientSignName: string
   clientSignDate: string
+  clientSignature?: string
   documents: {
     passwordRecords: boolean
     deliveryNotes: boolean

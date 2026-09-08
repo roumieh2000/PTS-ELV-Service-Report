@@ -21,9 +21,12 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ProjectSelect } from '@/components/project-select'
 import { useReportStore } from '@/stores/reportStore'
+import { useAuthStore } from '@/stores/authStore'
+import { buildDocRef, randomDocRefSuffix } from '@/lib/docref'
 import type { ServiceReport, ResolutionStatus, JobType } from '@/types/report'
-import { Plus, Pencil, Trash2, Save, Database } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, Database, RefreshCw } from 'lucide-react'
 
 const statusStyles: Record<string, string> = {
   Resolved: 'bg-emerald-100 text-emerald-800',
@@ -55,8 +58,10 @@ interface FormState {
   resolutionStatus: ResolutionStatus | ''
   progTechName: string
   progTechDate: string
+  progTechSignature?: string
   clientSignName: string
   clientSignDate: string
+  clientSignature?: string
   documents: Record<string, boolean>
 }
 
@@ -95,8 +100,10 @@ function reportToForm(r: ServiceReport): FormState {
     resolutionStatus: r.resolutionStatus,
     progTechName: r.progTechName,
     progTechDate: r.progTechDate,
+    progTechSignature: r.progTechSignature,
     clientSignName: r.clientSignName,
     clientSignDate: r.clientSignDate,
+    clientSignature: r.clientSignature,
     documents: { ...r.documents },
   }
 }
@@ -106,17 +113,40 @@ export function DataConsole() {
   const addReport = useReportStore((s) => s.addReport)
   const updateReport = useReportStore((s) => s.updateReport)
   const deleteReport = useReportStore((s) => s.deleteReport)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
+  const canWrite = hasPermission('console:write')
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormState>(defaultForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [errors, setErrors] = useState<string[]>([])
+  const [selectedProject, setSelectedProject] = useState('')
+
+  function baseOfDocRef(docRef: string): string {
+    const m = docRef.match(/^(.+)-[A-Z2-9]{4}$/)
+    return m ? m[1] : docRef
+  }
+
+  function handleProjectChange(code: string) {
+    setSelectedProject(code)
+    if (code && !form.docRef) {
+      updateField('docRef', buildDocRef(code, randomDocRefSuffix()))
+    }
+  }
+
+  function regenerateDocRef() {
+    const current = form.docRef
+    const base = selectedProject || (current ? baseOfDocRef(current) : '')
+    if (!base) return
+    updateField('docRef', buildDocRef(base, randomDocRefSuffix()))
+  }
 
   function openAdd() {
     setForm(defaultForm())
     setEditingId(null)
     setErrors([])
+    setSelectedProject('')
     setDialogOpen(true)
   }
 
@@ -124,6 +154,7 @@ export function DataConsole() {
     setForm(reportToForm(r))
     setEditingId(r.id)
     setErrors([])
+    setSelectedProject('')
     setDialogOpen(true)
   }
 
@@ -142,7 +173,7 @@ export function DataConsole() {
     return errs.length === 0
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!validate()) return
 
     const data = {
@@ -158,8 +189,10 @@ export function DataConsole() {
       resolutionStatus: form.resolutionStatus as ResolutionStatus,
       progTechName: form.progTechName.trim(),
       progTechDate: form.progTechDate,
+      progTechSignature: form.progTechSignature,
       clientSignName: form.clientSignName.trim(),
       clientSignDate: form.clientSignDate,
+      clientSignature: form.clientSignature,
       documents: {
         passwordRecords: form.documents.passwordRecords,
         deliveryNotes: form.documents.deliveryNotes,
@@ -170,15 +203,15 @@ export function DataConsole() {
     }
 
     if (editingId) {
-      updateReport(editingId, data)
+      await updateReport(editingId, data)
     } else {
-      addReport(data)
+      await addReport(data)
     }
     setDialogOpen(false)
   }
 
-  function handleDelete(id: string) {
-    deleteReport(id)
+  async function handleDelete(id: string) {
+    await deleteReport(id)
     setDeleteConfirm(null)
   }
 
@@ -206,10 +239,12 @@ export function DataConsole() {
           <Database className="size-5 text-blue-600" />
           <h1 className="text-2xl font-bold">Data Console</h1>
         </div>
-        <Button onClick={openAdd}>
-          <Plus className="size-4" />
-          Add Entry
-        </Button>
+        {canWrite && (
+          <Button onClick={openAdd}>
+            <Plus className="size-4" />
+            Add Entry
+          </Button>
+        )}
       </div>
 
       <Card className="overflow-hidden">
@@ -223,13 +258,13 @@ export function DataConsole() {
                 <th className="px-3 py-2">Project</th>
                 <th className="px-3 py-2">Job Types</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="w-24 px-3 py-2">Actions</th>
+                {canWrite && <th className="w-24 px-3 py-2">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-12 text-center text-neutral-500">
+                  <td colSpan={canWrite ? 7 : 6} className="px-3 py-12 text-center text-neutral-500">
                     No reports yet. Click "Add Entry" to create one.
                   </td>
                 </tr>
@@ -254,16 +289,18 @@ export function DataConsole() {
                         {r.resolutionStatus}
                       </Badge>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2">
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon-xs" onClick={() => openEdit(r)}>
-                          <Pencil className="size-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon-xs" onClick={() => setDeleteConfirm(r.id)}>
-                          <Trash2 className="size-3 text-red-500" />
-                        </Button>
-                      </div>
-                    </td>
+                    {canWrite && (
+                      <td className="whitespace-nowrap px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon-xs" onClick={() => openEdit(r)}>
+                            <Pencil className="size-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon-xs" onClick={() => setDeleteConfirm(r.id)}>
+                            <Trash2 className="size-3 text-red-500" />
+                          </Button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -273,149 +310,167 @@ export function DataConsole() {
       </Card>
 
       {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingId ? 'Edit Entry' : 'New Entry'}</DialogTitle>
-          </DialogHeader>
+      {canWrite && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{editingId ? 'Edit Entry' : 'New Entry'}</DialogTitle>
+            </DialogHeader>
 
-          <div className="max-h-[60vh] space-y-4 overflow-y-auto px-1">
-            {errors.length > 0 && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {errors.map((e) => <p key={e}>{e}</p>)}
-              </div>
-            )}
+            <div className="max-h-[60vh] space-y-4 overflow-y-auto px-1">
+              {errors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {errors.map((e) => <p key={e}>{e}</p>)}
+                </div>
+              )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Doc Ref</Label>
-                <Input value={form.docRef} onChange={(e) => updateField('docRef', e.target.value)} placeholder="SR-2026-XXX" />
-              </div>
-              <div className="space-y-1">
-                <Label>LPO / Contract Ref</Label>
-                <Input value={form.lpoContractRef} onChange={(e) => updateField('lpoContractRef', e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Date</Label>
-                <Input type="date" value={form.date} onChange={(e) => updateField('date', e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>TXN</Label>
-                <Input value={form.txn} onChange={(e) => updateField('txn', e.target.value)} />
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Client Name</Label>
-                <Input value={form.clientName} onChange={(e) => updateField('clientName', e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Project Name</Label>
-                <Input value={form.projectName} onChange={(e) => updateField('projectName', e.target.value)} />
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-1">
-              <Label>Job Types</Label>
-              <div className="flex flex-wrap gap-3">
-                {jobTypeOptions.map((jt) => (
-                  <label key={jt} className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={form.jobTypes.includes(jt)} onCheckedChange={() => toggleJobType(jt)} />
-                    {jt}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Complaints</Label>
-                <Textarea rows={3} value={form.complaints} onChange={(e) => updateField('complaints', e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Actions Taken</Label>
-                <Textarea rows={3} value={form.actionsTaken} onChange={(e) => updateField('actionsTaken', e.target.value)} />
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-1">
-              <Label>Resolution Status</Label>
-              <Select
-                value={form.resolutionStatus}
-                onValueChange={(v) => updateField('resolutionStatus', v as ResolutionStatus)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Resolved">Resolved</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Escalated">Escalated</SelectItem>
-                  <SelectItem value="Partial">Partial</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2 rounded-lg border p-3">
-                <h3 className="text-xs font-medium">Prog Tech</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 space-y-1">
+                  <Label>Project Code</Label>
+                  <ProjectSelect value={selectedProject} onChange={handleProjectChange} placeholder="Select project code" />
+                </div>
                 <div className="space-y-1">
-                  <Label>Name</Label>
-                  <Input value={form.progTechName} onChange={(e) => updateField('progTechName', e.target.value)} />
+                  <Label>Doc Ref</Label>
+                  <div className="flex gap-2">
+                    <Input value={form.docRef} onChange={(e) => updateField('docRef', e.target.value)} placeholder="SR-2026-XXX" className="flex-1" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={regenerateDocRef}
+                      disabled={!selectedProject && !form.docRef}
+                      title="Generate doc ref"
+                    >
+                      <RefreshCw className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label>LPO / Contract Ref</Label>
+                  <Input value={form.lpoContractRef} onChange={(e) => updateField('lpoContractRef', e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <Label>Date</Label>
-                  <Input type="date" value={form.progTechDate} onChange={(e) => updateField('progTechDate', e.target.value)} />
+                  <Input type="date" value={form.date} onChange={(e) => updateField('date', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>TXN</Label>
+                  <Input value={form.txn} onChange={(e) => updateField('txn', e.target.value)} />
                 </div>
               </div>
-              <div className="space-y-2 rounded-lg border p-3">
-                <h3 className="text-xs font-medium">Client Sign</h3>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Name</Label>
-                  <Input value={form.clientSignName} onChange={(e) => updateField('clientSignName', e.target.value)} />
+                  <Label>Client Name</Label>
+                  <Input value={form.clientName} onChange={(e) => updateField('clientName', e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label>Date</Label>
-                  <Input type="date" value={form.clientSignDate} onChange={(e) => updateField('clientSignDate', e.target.value)} />
+                  <Label>Project Name</Label>
+                  <Input value={form.projectName} onChange={(e) => updateField('projectName', e.target.value)} />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1">
+                <Label>Job Types</Label>
+                <div className="flex flex-wrap gap-3">
+                  {jobTypeOptions.map((jt) => (
+                    <label key={jt} className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={form.jobTypes.includes(jt)} onCheckedChange={() => toggleJobType(jt)} />
+                      {jt}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Complaints</Label>
+                  <Textarea rows={3} value={form.complaints} onChange={(e) => updateField('complaints', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Actions Taken</Label>
+                  <Textarea rows={3} value={form.actionsTaken} onChange={(e) => updateField('actionsTaken', e.target.value)} />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1">
+                <Label>Resolution Status</Label>
+                <Select
+                  value={form.resolutionStatus}
+                  onValueChange={(v) => updateField('resolutionStatus', v as ResolutionStatus)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Resolved">Resolved</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Escalated">Escalated</SelectItem>
+                    <SelectItem value="Partial">Partial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2 rounded-lg border p-3">
+                  <h3 className="text-xs font-medium">Prog Tech</h3>
+                  <div className="space-y-1">
+                    <Label>Name</Label>
+                    <Input value={form.progTechName} onChange={(e) => updateField('progTechName', e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Date</Label>
+                    <Input type="date" value={form.progTechDate} onChange={(e) => updateField('progTechDate', e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-2 rounded-lg border p-3">
+                  <h3 className="text-xs font-medium">Client Sign</h3>
+                  <div className="space-y-1">
+                    <Label>Name</Label>
+                    <Input value={form.clientSignName} onChange={(e) => updateField('clientSignName', e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Date</Label>
+                    <Input type="date" value={form.clientSignDate} onChange={(e) => updateField('clientSignDate', e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1">
+                <Label>Documents</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {documentFields.map(({ key, label }) => (
+                    <label key={key} className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={form.documents[key]} onCheckedChange={(v) => toggleDoc(key, !!v)} />
+                      {label}
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
 
-            <Separator />
-
-            <div className="space-y-1">
-              <Label>Documents</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {documentFields.map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={form.documents[key]} onCheckedChange={(v) => toggleDoc(key, !!v)} />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>
-              <Save className="size-4" />
-              {editingId ? 'Update' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave}>
+                <Save className="size-4" />
+                {editingId ? 'Update' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteConfirm} onOpenChange={(o) => !o && setDeleteConfirm(null)}>

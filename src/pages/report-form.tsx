@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,9 +17,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { ProjectSelect } from '@/components/project-select'
+import { ArrowLeft, RefreshCw, Save, Trash2 } from 'lucide-react'
+import { SignaturePad } from '@/components/signature-pad'
 import { useReportStore } from '@/stores/reportStore'
+import { useAuthStore } from '@/stores/authStore'
+import { useProjectStore } from '@/stores/projectStore'
+import { buildDocRef, randomDocRefSuffix } from '@/lib/docref'
+import type { User } from '@/types/auth'
 import type { JobType, ResolutionStatus } from '@/types/report'
+
+function userLabel(u: User): string {
+  return u.name || u.username
+}
 
 const jobTypeOptions: { value: JobType; label: string }[] = [
   { value: 'AMC', label: 'AMC' },
@@ -41,8 +52,10 @@ const schema = z.object({
   resolutionStatus: z.string().min(1, 'Required'),
   progTechName: z.string().min(1, 'Required'),
   progTechDate: z.string().min(1, 'Required'),
+  progTechSignature: z.string().optional(),
   clientSignName: z.string().min(1, 'Required'),
   clientSignDate: z.string().min(1, 'Required'),
+  clientSignature: z.string().optional(),
   passwordRecords: z.boolean(),
   deliveryNotes: z.boolean(),
   configuration: z.boolean(),
@@ -56,11 +69,18 @@ export function ReportForm() {
   const { id } = useParams()
   const isEdit = !!id
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const clientParam = searchParams.get('client') ?? ''
+  const pocParam = searchParams.get('poc') ?? ''
+  const projectParam = searchParams.get('project') ?? ''
   const existing = useReportStore((s) => (id ? s.getReport(id) : undefined))
   const addReport = useReportStore((s) => s.addReport)
   const updateReport = useReportStore((s) => s.updateReport)
+  const users = useAuthStore((s) => s.users)
+  const projects = useProjectStore((s) => s.projects)
+  const [selectedProject, setSelectedProject] = useState('')
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<FormData>({
+  const { register, handleSubmit, getValues, formState: { errors }, setValue, watch } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: existing
       ? {
@@ -76,8 +96,10 @@ export function ReportForm() {
           resolutionStatus: existing.resolutionStatus,
           progTechName: existing.progTechName,
           progTechDate: existing.progTechDate,
+          progTechSignature: existing.progTechSignature ?? '',
           clientSignName: existing.clientSignName,
           clientSignDate: existing.clientSignDate,
+          clientSignature: existing.clientSignature ?? '',
           passwordRecords: existing.documents.passwordRecords,
           deliveryNotes: existing.documents.deliveryNotes,
           configuration: existing.documents.configuration,
@@ -89,16 +111,18 @@ export function ReportForm() {
           lpoContractRef: '',
           date: new Date().toISOString().slice(0, 10),
           txn: '',
-          clientName: '',
+          clientName: clientParam,
           projectName: '',
           jobTypes: [],
           complaints: '',
           actionsTaken: '',
           resolutionStatus: '',
-          progTechName: '',
+          progTechName: pocParam,
           progTechDate: new Date().toISOString().slice(0, 10),
+          progTechSignature: '',
           clientSignName: '',
           clientSignDate: new Date().toISOString().slice(0, 10),
+          clientSignature: '',
           passwordRecords: false,
           deliveryNotes: false,
           configuration: false,
@@ -116,6 +140,43 @@ export function ReportForm() {
     others: watch('others'),
   }
 
+  useEffect(() => {
+    if (isEdit || !projectParam || selectedProject) return
+    const found = projects.find((p) => p.code === projectParam)
+    if (found && !getValues('docRef')) {
+      setSelectedProject(found.code)
+      setValue('docRef', nextDocRef(found.code), { shouldValidate: true })
+    }
+  }, [projectParam, projects, isEdit, selectedProject, getValues, setValue])
+
+  function baseOfDocRef(docRef: string): string {
+    const m = docRef.match(/^(.+)-[A-Z2-9]{4}$/)
+    return m ? m[1] : docRef
+  }
+
+  function nextDocRef(base: string): string {
+    const taken = new Set(useReportStore.getState().reports.map((r) => r.docRef))
+    let suffix = randomDocRefSuffix()
+    while (taken.has(buildDocRef(base, suffix))) {
+      suffix = randomDocRefSuffix()
+    }
+    return buildDocRef(base, suffix)
+  }
+
+  function handleProjectChange(code: string) {
+    setSelectedProject(code)
+    if (code && !getValues('docRef')) {
+      setValue('docRef', nextDocRef(code), { shouldValidate: true })
+    }
+  }
+
+  function regenerateDocRef() {
+    const current = getValues('docRef')
+    const base = selectedProject || (current ? baseOfDocRef(current) : '')
+    if (!base) return
+    setValue('docRef', nextDocRef(base), { shouldValidate: true })
+  }
+
   function toggleJobType(value: JobType) {
     const current = watchedJobTypes
     if (current.includes(value)) {
@@ -125,7 +186,7 @@ export function ReportForm() {
     }
   }
 
-  function onSubmit(data: FormData) {
+  async function onSubmit(data: FormData) {
     const reportData = {
       docRef: data.docRef,
       lpoContractRef: data.lpoContractRef,
@@ -139,8 +200,10 @@ export function ReportForm() {
       resolutionStatus: data.resolutionStatus as ResolutionStatus,
       progTechName: data.progTechName,
       progTechDate: data.progTechDate,
+      progTechSignature: data.progTechSignature || undefined,
       clientSignName: data.clientSignName,
       clientSignDate: data.clientSignDate,
+      clientSignature: data.clientSignature || undefined,
       documents: {
         passwordRecords: data.passwordRecords,
         deliveryNotes: data.deliveryNotes,
@@ -151,11 +214,11 @@ export function ReportForm() {
     }
 
     if (isEdit && id) {
-      updateReport(id, reportData)
+      await updateReport(id, reportData)
       navigate(`/reports/${id}`)
     } else {
-      const created = addReport(reportData)
-      navigate(`/reports/${created.id}`)
+      const created = await addReport(reportData)
+      if (created) navigate(`/reports/${created.id}`)
     }
   }
 
@@ -172,9 +235,29 @@ export function ReportForm() {
         <Card>
           <CardHeader><CardTitle className="text-lg">Job Header</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1 sm:col-span-2">
+              <Label>Project Code</Label>
+              <ProjectSelect
+                value={selectedProject}
+                onChange={handleProjectChange}
+                placeholder="Select project code"
+              />
+            </div>
             <div className="space-y-1">
               <Label htmlFor="docRef">Doc Ref</Label>
-              <Input id="docRef" {...register('docRef')} />
+              <div className="flex gap-2">
+                <Input id="docRef" className="flex-1" {...register('docRef')} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={regenerateDocRef}
+                  disabled={!selectedProject && !watch('docRef')}
+                  title="Generate doc ref"
+                >
+                  <RefreshCw className="size-4" />
+                </Button>
+              </div>
               {errors.docRef && <p className="text-xs text-red-500">{errors.docRef.message}</p>}
             </div>
             <div className="space-y-1">
@@ -273,13 +356,33 @@ export function ReportForm() {
               <h3 className="font-medium text-sm">Prog Tech</h3>
               <div className="space-y-1">
                 <Label htmlFor="progTechName">Name</Label>
-                <Input id="progTechName" {...register('progTechName')} />
+                <Select
+                  value={watch('progTechName')}
+                  onValueChange={(v) => v && setValue('progTechName', v, { shouldValidate: true })}
+                >
+                  <SelectTrigger id="progTechName">
+                    <SelectValue placeholder="Select user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={userLabel(u)}>{userLabel(u)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {errors.progTechName && <p className="text-xs text-red-500">{errors.progTechName.message}</p>}
               </div>
               <div className="space-y-1">
                 <Label htmlFor="progTechDate">Date</Label>
                 <Input id="progTechDate" type="date" {...register('progTechDate')} />
                 {errors.progTechDate && <p className="text-xs text-red-500">{errors.progTechDate.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label>Signature</Label>
+                <SignaturePad
+                  value={watch('progTechSignature') || null}
+                  onChange={(sig) => setValue('progTechSignature', sig ?? '')}
+                  placeholder="Prog tech signature"
+                />
               </div>
             </div>
             <div className="space-y-3 rounded-lg border p-4">
@@ -293,6 +396,14 @@ export function ReportForm() {
                 <Label htmlFor="clientSignDate">Date</Label>
                 <Input id="clientSignDate" type="date" {...register('clientSignDate')} />
                 {errors.clientSignDate && <p className="text-xs text-red-500">{errors.clientSignDate.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label>Signature</Label>
+                <SignaturePad
+                  value={watch('clientSignature') || null}
+                  onChange={(sig) => setValue('clientSignature', sig ?? '')}
+                  placeholder="Client signature"
+                />
               </div>
             </div>
           </CardContent>
