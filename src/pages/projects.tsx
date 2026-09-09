@@ -25,17 +25,28 @@ import { CITIES, formatProjectCode } from '@/types/project'
 import { Plus, Pencil, Trash2, Save, FolderOpen } from 'lucide-react'
 
 interface FormState {
-  city: CityCode | ''
+  city: string
+  customCity: string
   number: string
   clientRef: string
 }
 
 function defaultForm(): FormState {
-  return { city: '', number: '', clientRef: '' }
+  return { city: '', customCity: '', number: '', clientRef: '' }
 }
 
 function projectToForm(p: ProjectCode): FormState {
-  return { city: p.city, number: p.number, clientRef: p.clientRef }
+  const known = CITIES.includes(p.city as CityCode)
+  return {
+    city: known ? p.city : 'Oth',
+    customCity: known ? '' : p.city,
+    number: p.number,
+    clientRef: p.clientRef,
+  }
+}
+
+function effectiveCity(f: FormState): string {
+  return f.city === 'Oth' ? f.customCity.trim().toUpperCase() : f.city
 }
 
 export function Projects() {
@@ -69,22 +80,25 @@ export function Projects() {
   }
 
   const previewCode = form.city
-    ? formatProjectCode(form.city, form.number, form.clientRef)
+    ? formatProjectCode(effectiveCity(form) || 'OTH', form.number, form.clientRef)
     : ''
 
   async function handleSave() {
     setError('')
     if (!form.city) { setError('City is required'); return }
-    if (!/^\d{3}$/.test(form.number)) { setError('Project number must be exactly 3 digits'); return }
+    if (form.city === 'Oth' && !form.customCity.trim()) { setError('City code is required'); return }
+    if (!/^\d{3}$/.test(form.number) || Number(form.number) < 1) {
+      setError('Project number must be 001-999'); return
+    }
     if (!form.clientRef.trim()) { setError('Client / project name is required'); return }
 
-    const code = formatProjectCode(form.city, form.number, form.clientRef)
+    const code = formatProjectCode(effectiveCity(form), form.number, form.clientRef)
     const duplicate = projects.some(
       (p) => p.code.toLowerCase() === code.toLowerCase() && p.id !== editingId
     )
     if (duplicate) { setError('This project code already exists'); return }
 
-    const data = { city: form.city, number: form.number, clientRef: form.clientRef }
+    const data = { city: effectiveCity(form), number: form.number, clientRef: form.clientRef }
     if (editingId) {
       await updateProject(editingId, data)
     } else {
@@ -177,7 +191,7 @@ export function Projects() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>City</Label>
-                <Select value={form.city} onValueChange={(v) => updateField('city', v as CityCode)}>
+                <Select value={form.city} onValueChange={(v) => updateField('city', v ?? '')}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select city" />
                   </SelectTrigger>
@@ -185,6 +199,7 @@ export function Projects() {
                     {CITIES.map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
+                    <SelectItem value="Oth">Oth (other)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -199,6 +214,18 @@ export function Projects() {
                 />
               </div>
             </div>
+
+            {form.city === 'Oth' && (
+              <div className="space-y-1">
+                <Label>City Code (other)</Label>
+                <Input
+                  value={form.customCity}
+                  onChange={(e) => updateField('customCity', e.target.value.toUpperCase())}
+                  placeholder="Enter city code, e.g. ABC"
+                  maxLength={5}
+                />
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label>Client / Project Name</Label>

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CityCode, ProjectCode } from '@/types/project'
+import type { ProjectCode } from '@/types/project'
 import { formatProjectCode } from '@/types/project'
 import { supabase } from '@/lib/supabase'
 import { log } from '@/lib/logger'
@@ -8,15 +8,15 @@ interface ProjectStore {
   projects: ProjectCode[]
   loading: boolean
   loadProjects: () => Promise<void>
-  addProject: (data: { city: CityCode; number: string; clientRef: string }) => Promise<ProjectCode | null>
-  updateProject: (id: string, data: { city: CityCode; number: string; clientRef: string }) => Promise<void>
+  addProject: (data: { city: string; number: string; clientRef: string }) => Promise<ProjectCode | null>
+  updateProject: (id: string, data: { city: string; number: string; clientRef: string }) => Promise<void>
   deleteProject: (id: string) => Promise<void>
   getProjectByCode: (code: string) => ProjectCode | undefined
 }
 
 interface ProjectRow {
   id: string
-  city: CityCode
+  city: string
   number: string
   client_ref: string
   code: string
