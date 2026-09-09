@@ -130,7 +130,7 @@ export function DataConsole() {
 
   function handleProjectChange(code: string) {
     setSelectedProject(code)
-    if (code && !form.docRef) {
+    if (code && code !== form.docRef.replace(/-[A-Z2-9]{4}$/, '')) {
       updateField('docRef', buildDocRef(code, randomDocRefSuffix()))
     }
   }

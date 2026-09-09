@@ -165,7 +165,7 @@ export function ReportForm() {
 
   function handleProjectChange(code: string) {
     setSelectedProject(code)
-    if (code && !getValues('docRef')) {
+    if (code && code !== getValues('docRef').replace(/-[A-Z2-9]{4}$/, '')) {
       setValue('docRef', nextDocRef(code), { shouldValidate: true })
     }
   }
