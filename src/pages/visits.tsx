@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,7 +19,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { ProjectSelect } from '@/components/project-select'
 import type { Visit } from '@/types/visit'
 import type { User } from '@/types/auth'
-import { CalendarDays, Plus, Pencil, Trash2, Save, FilePlus2 } from 'lucide-react'
+import { CalendarDays, Plus, Pencil, Trash2, Save, FilePlus2, Eye } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -79,6 +79,7 @@ export function Visits() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const users = useAuthStore((s) => s.users)
   const canCreateReport = hasPermission('reports:create')
+  const showReportCol = canCreateReport || visits.some((v) => v.reportId)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormState>(defaultForm)
@@ -134,7 +135,11 @@ export function Visits() {
   }
 
   function goToReport(v: Visit) {
-    const params = new URLSearchParams({ client: v.clientName, poc: v.personInCharge })
+    const params = new URLSearchParams({
+      client: v.clientName,
+      poc: v.personInCharge,
+      visit: v.id,
+    })
     if (v.projectCode) params.set('project', v.projectCode)
     navigate(`/reports/new?${params.toString()}`)
   }
@@ -162,7 +167,7 @@ export function Visits() {
                 <th className="px-3 py-2">Client</th>
                 <th className="px-3 py-2">Person in Charge</th>
                 <th className="px-3 py-2">Project</th>
-                {canCreateReport && <th className="w-40 px-3 py-2">Report</th>}
+                {showReportCol && <th className="w-40 px-3 py-2">Report</th>}
                 <th className="w-24 px-3 py-2">Actions</th>
               </tr>
             </thead>
@@ -188,12 +193,24 @@ export function Visits() {
                     <td className="max-w-[220px] truncate px-3 py-2 font-mono text-xs" title={v.projectCode}>
                       {v.projectCode || '\u2014'}
                     </td>
-                    {canCreateReport && (
+                    {showReportCol && (
                       <td className="px-3 py-2">
-                        <Button size="sm" variant="outline" onClick={() => goToReport(v)}>
-                          <FilePlus2 className="size-3.5" />
-                          Create Report
-                        </Button>
+                        {v.reportId ? (
+                          <Link
+                            to={`/reports/${v.reportId}`}
+                            className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                          >
+                            <Eye className="size-3.5" />
+                            View Report
+                          </Link>
+                        ) : canCreateReport ? (
+                          <Button size="sm" variant="outline" onClick={() => goToReport(v)}>
+                            <FilePlus2 className="size-3.5" />
+                            Create Report
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                     )}
                     <td className="whitespace-nowrap px-3 py-2">

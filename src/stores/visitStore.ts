@@ -9,6 +9,7 @@ interface VisitStore {
   loadVisits: () => Promise<void>
   addVisit: (data: Omit<Visit, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Visit | null>
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>
+  linkReport: (id: string, reportId: string) => Promise<void>
   deleteVisit: (id: string) => Promise<void>
 }
 
@@ -20,6 +21,7 @@ interface VisitRow {
   person_in_charge: string
   project_code: string | null
   notes: string | null
+  report_id: string | null
   created_at: string
   updated_at: string
 }
@@ -33,6 +35,7 @@ function toVisit(row: VisitRow): Visit {
     personInCharge: row.person_in_charge,
     projectCode: row.project_code ?? undefined,
     notes: row.notes ?? undefined,
+    reportId: row.report_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -95,6 +98,20 @@ export const useVisitStore = create<VisitStore>((set) => ({
     }
     set((s) => ({
       visits: sortedVisits(s.visits.map((v) => (v.id === id ? { ...v, ...data } : v))),
+    }))
+  },
+
+  linkReport: async (id, reportId) => {
+    const { error } = await supabase
+      .from('visits')
+      .update({ report_id: reportId, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) {
+      log('error', 'Failed to link report to visit', error)
+      return
+    }
+    set((s) => ({
+      visits: s.visits.map((v) => (v.id === id ? { ...v, reportId } : v)),
     }))
   },
 

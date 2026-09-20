@@ -6,6 +6,7 @@ export interface Visit {
   personInCharge: string
   projectCode?: string
   notes?: string
+  reportId?: string
   createdAt: string
   updatedAt: string
 }

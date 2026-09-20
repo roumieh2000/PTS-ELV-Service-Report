@@ -182,3 +182,6 @@ where role = 'admin'
 
 -- ---------- VISITS: optional project code ----------
 alter table public.visits add column if not exists project_code text;
+
+-- ---------- VISITS: report link (set when a report is created from a visit) ----------
+alter table public.visits add column if not exists report_id text;

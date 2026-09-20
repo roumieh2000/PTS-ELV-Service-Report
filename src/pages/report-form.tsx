@@ -23,6 +23,7 @@ import { SignaturePad } from '@/components/signature-pad'
 import { useReportStore } from '@/stores/reportStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { useVisitStore } from '@/stores/visitStore'
 import { buildDocRef, randomDocRefSuffix } from '@/lib/docref'
 import type { User } from '@/types/auth'
 import type { JobType, ResolutionStatus } from '@/types/report'
@@ -73,6 +74,7 @@ export function ReportForm() {
   const clientParam = searchParams.get('client') ?? ''
   const pocParam = searchParams.get('poc') ?? ''
   const projectParam = searchParams.get('project') ?? ''
+  const visitParam = searchParams.get('visit') ?? ''
   const existing = useReportStore((s) => (id ? s.getReport(id) : undefined))
   const addReport = useReportStore((s) => s.addReport)
   const updateReport = useReportStore((s) => s.updateReport)
@@ -218,7 +220,12 @@ export function ReportForm() {
       navigate(`/reports/${id}`)
     } else {
       const created = await addReport(reportData)
-      if (created) navigate(`/reports/${created.id}`)
+      if (created) {
+        if (visitParam) {
+          await useVisitStore.getState().linkReport(visitParam, created.id)
+        }
+        navigate(`/reports/${created.id}`)
+      }
     }
   }
 
