@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { useVisitStore } from '@/stores/visitStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useProjectStore } from '@/stores/projectStore'
 import { ProjectSelect } from '@/components/project-select'
 import type { Visit } from '@/types/visit'
 import type { User } from '@/types/auth'
@@ -78,6 +79,7 @@ export function Visits() {
   const deleteVisit = useVisitStore((s) => s.deleteVisit)
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const users = useAuthStore((s) => s.users)
+  const projects = useProjectStore((s) => s.projects)
   const canCreateReport = hasPermission('reports:create')
   const showReportCol = canCreateReport || visits.some((v) => v.reportId)
 
@@ -103,6 +105,19 @@ export function Visits() {
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function handleProjectSelect(code: string) {
+    const prevCode = form.projectCode
+    updateField('projectCode', code)
+    if (!code) return
+    const next = projects.find((proj) => proj.code === code)
+    if (!next) return
+    const prev = projects.find((proj) => proj.code === prevCode)
+    const shouldFill =
+      !form.clientName.trim() ||
+      (prev !== undefined && form.clientName.trim() === prev.clientRef)
+    if (shouldFill) updateField('clientName', next.clientRef)
   }
 
   async function handleSave() {
@@ -281,7 +296,7 @@ export function Visits() {
             </div>
             <div className="space-y-1">
               <Label>Project Code (optional)</Label>
-              <ProjectSelect value={form.projectCode} onChange={(v) => updateField('projectCode', v)} allowNone />
+              <ProjectSelect value={form.projectCode} onChange={handleProjectSelect} allowNone />
             </div>
             <div className="space-y-1">
               <Label>Notes (optional)</Label>
