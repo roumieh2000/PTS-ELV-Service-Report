@@ -185,3 +185,79 @@ alter table public.visits add column if not exists project_code text;
 
 -- ---------- VISITS: report link (set when a report is created from a visit) ----------
 alter table public.visits add column if not exists report_id text;
+
+-- ---------- REPORTS: visit date (separate from the report date) ----------
+alter table public.reports add column if not exists visit_date text;
+
+-- ============================================================
+-- CRM: clients + follow-ups
+-- ============================================================
+create table if not exists public.crm_clients (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  contact_person text not null default '',
+  phone text not null default '',
+  email text not null default '',
+  address text not null default '',
+  city text not null default '',
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.crm_clients enable row level security;
+
+drop policy if exists "anon crm_clients select" on public.crm_clients;
+create policy "anon crm_clients select" on public.crm_clients
+  for select using (true);
+drop policy if exists "anon crm_clients insert" on public.crm_clients;
+create policy "anon crm_clients insert" on public.crm_clients
+  for insert with check (true);
+drop policy if exists "anon crm_clients update" on public.crm_clients;
+create policy "anon crm_clients update" on public.crm_clients
+  for update using (true) with check (true);
+drop policy if exists "anon crm_clients delete" on public.crm_clients;
+create policy "anon crm_clients delete" on public.crm_clients
+  for delete using (true);
+
+create table if not exists public.crm_followups (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.crm_clients(id) on delete cascade,
+  report_id uuid,
+  visit_id uuid,
+  assigned_to text not null default '',
+  task text not null,
+  due_date text not null default '',
+  status text not null default 'Open',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.crm_followups enable row level security;
+
+drop policy if exists "anon crm_followups select" on public.crm_followups;
+create policy "anon crm_followups select" on public.crm_followups
+  for select using (true);
+drop policy if exists "anon crm_followups insert" on public.crm_followups;
+create policy "anon crm_followups insert" on public.crm_followups
+  for insert with check (true);
+drop policy if exists "anon crm_followups update" on public.crm_followups;
+create policy "anon crm_followups update" on public.crm_followups
+  for update using (true) with check (true);
+drop policy if exists "anon crm_followups delete" on public.crm_followups;
+create policy "anon crm_followups delete" on public.crm_followups
+  for delete using (true);
+
+-- ---------- LINK VISITS / REPORTS TO CLIENTS ----------
+alter table public.visits add column if not exists client_id uuid references public.crm_clients(id);
+alter table public.reports add column if not exists client_id uuid references public.crm_clients(id);
+
+-- Grant the new CRM permissions to existing users
+update public.users
+set permissions = (select array_agg(distinct p) from unnest(permissions || array['crm:view','crm:manage']) as p)
+where role = 'admin'
+  and not permissions @> array['crm:view'];
+update public.users
+set permissions = (select array_agg(distinct p) from unnest(permissions || array['crm:view']) as p)
+where role = 'staff'
+  and not permissions @> array['crm:view'];

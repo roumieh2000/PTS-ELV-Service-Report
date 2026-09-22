@@ -24,6 +24,8 @@ import { useReportStore } from '@/stores/reportStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useVisitStore } from '@/stores/visitStore'
+import { supabase } from '@/lib/supabase'
+import { useCrmClientStore } from '@/stores/crmClientStore'
 import { buildDocRef, randomDocRefSuffix } from '@/lib/docref'
 import type { User } from '@/types/auth'
 import type { JobType, ResolutionStatus } from '@/types/report'
@@ -44,13 +46,14 @@ const schema = z.object({
   docRef: z.string().min(1, 'Required'),
   lpoContractRef: z.string().min(1, 'Required'),
   date: z.string().min(1, 'Required'),
-  txn: z.string().min(1, 'Required'),
+  txn: z.string().optional(),
   clientName: z.string().min(1, 'Required'),
   projectName: z.string().min(1, 'Required'),
   jobTypes: z.array(z.string()).min(1, 'Select at least one'),
   complaints: z.string().min(1, 'Required'),
   actionsTaken: z.string().min(1, 'Required'),
   resolutionStatus: z.string().min(1, 'Required'),
+  visitDate: z.string().optional(),
   progTechName: z.string().min(1, 'Required'),
   progTechDate: z.string().min(1, 'Required'),
   progTechSignature: z.string().optional(),
@@ -89,6 +92,7 @@ export function ReportForm() {
           docRef: existing.docRef,
           lpoContractRef: existing.lpoContractRef,
           date: existing.date,
+          visitDate: existing.visitDate ?? '',
           txn: existing.txn,
           clientName: existing.clientName,
           projectName: existing.projectName,
@@ -112,6 +116,7 @@ export function ReportForm() {
           docRef: '',
           lpoContractRef: '',
           date: new Date().toISOString().slice(0, 10),
+          visitDate: '',
           txn: '',
           clientName: clientParam,
           projectName: '',
@@ -151,6 +156,26 @@ export function ReportForm() {
     }
   }, [projectParam, projects, isEdit, selectedProject, getValues, setValue])
 
+  useEffect(() => {
+    if (isEdit || !visitParam) return
+    let cancelled = false
+    void supabase
+      .from('visits')
+      .select('visit_date, notes')
+      .eq('id', visitParam)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        if (data.visit_date) setValue('visitDate', data.visit_date)
+        if (data.notes && !getValues('complaints')) {
+          setValue('complaints', data.notes, { shouldValidate: true })
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isEdit, visitParam, setValue, getValues])
+
   function baseOfDocRef(docRef: string): string {
     const m = docRef.match(/^(.+)-[A-Z2-9]{4}$/)
     return m ? m[1] : docRef
@@ -189,11 +214,14 @@ export function ReportForm() {
   }
 
   async function onSubmit(data: FormData) {
+    const matchedClient = useCrmClientStore.getState().findByName(data.clientName)
     const reportData = {
       docRef: data.docRef,
       lpoContractRef: data.lpoContractRef,
       date: data.date,
-      txn: data.txn,
+      visitDate: data.visitDate || undefined,
+      clientId: matchedClient ? matchedClient.id : isEdit ? existing?.clientId : undefined,
+      txn: data.txn || '',
       clientName: data.clientName,
       projectName: data.projectName,
       jobTypes: data.jobTypes as JobType[],
@@ -278,7 +306,11 @@ export function ReportForm() {
               {errors.date && <p className="text-xs text-red-500">{errors.date.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="txn">TXN</Label>
+              <Label htmlFor="visitDate">Visit Date (if created from a visit)</Label>
+              <Input id="visitDate" type="date" {...register('visitDate')} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="txn">TXN (optional)</Label>
               <Input id="txn" {...register('txn')} />
               {errors.txn && <p className="text-xs text-red-500">{errors.txn.message}</p>}
             </div>

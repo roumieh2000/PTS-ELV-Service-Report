@@ -22,6 +22,7 @@ interface VisitRow {
   project_code: string | null
   notes: string | null
   report_id: string | null
+  client_id: string | null
   created_at: string
   updated_at: string
 }
@@ -36,6 +37,7 @@ function toVisit(row: VisitRow): Visit {
     projectCode: row.project_code ?? undefined,
     notes: row.notes ?? undefined,
     reportId: row.report_id ?? undefined,
+    clientId: row.client_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -69,6 +71,7 @@ export const useVisitStore = create<VisitStore>((set) => ({
       person_in_charge: data.personInCharge,
       project_code: data.projectCode ?? null,
       notes: data.notes ?? null,
+      client_id: data.clientId ?? null,
       created_at: now,
       updated_at: now,
     }
@@ -90,6 +93,7 @@ export const useVisitStore = create<VisitStore>((set) => ({
     if (data.personInCharge !== undefined) patch.person_in_charge = data.personInCharge
     if (data.projectCode !== undefined) patch.project_code = data.projectCode || null
     if (data.notes !== undefined) patch.notes = data.notes || null
+    if (data.clientId !== undefined) patch.client_id = data.clientId || null
 
     const { error } = await supabase.from('visits').update(patch).eq('id', id)
     if (error) {

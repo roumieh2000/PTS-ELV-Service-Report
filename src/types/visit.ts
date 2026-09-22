@@ -7,6 +7,7 @@ export interface Visit {
   projectCode?: string
   notes?: string
   reportId?: string
+  clientId?: string
   createdAt: string
   updatedAt: string
 }

@@ -6,6 +6,8 @@ export interface ServiceReport {
   docRef: string
   lpoContractRef: string
   date: string
+  visitDate?: string
+  clientId?: string
   txn: string
   clientName: string
   projectName: string

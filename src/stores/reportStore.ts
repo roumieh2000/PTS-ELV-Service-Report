@@ -22,6 +22,8 @@ interface ReportRow {
   doc_ref: string
   lpo_contract_ref: string
   date: string
+  visit_date: string | null
+  client_id: string | null
   txn: string
   client_name: string
   project_name: string
@@ -46,6 +48,8 @@ function toReport(row: ReportRow): ServiceReport {
     docRef: row.doc_ref,
     lpoContractRef: row.lpo_contract_ref,
     date: row.date,
+    visitDate: row.visit_date ?? undefined,
+    clientId: row.client_id ?? undefined,
     txn: row.txn,
     clientName: row.client_name,
     projectName: row.project_name,
@@ -90,6 +94,8 @@ export const useReportStore = create<ReportStore>((set, get) => ({  reports: [],
       doc_ref: data.docRef,
       lpo_contract_ref: data.lpoContractRef,
       date: data.date,
+      visit_date: data.visitDate ?? null,
+      client_id: data.clientId ?? null,
       txn: data.txn,
       client_name: data.clientName,
       project_name: data.projectName,
@@ -122,6 +128,8 @@ export const useReportStore = create<ReportStore>((set, get) => ({  reports: [],
     if (data.docRef !== undefined) patch.doc_ref = data.docRef
     if (data.lpoContractRef !== undefined) patch.lpo_contract_ref = data.lpoContractRef
     if (data.date !== undefined) patch.date = data.date
+    if (data.visitDate !== undefined) patch.visit_date = data.visitDate || null
+    if (data.clientId !== undefined) patch.client_id = data.clientId || null
     if (data.txn !== undefined) patch.txn = data.txn
     if (data.clientName !== undefined) patch.client_name = data.clientName
     if (data.projectName !== undefined) patch.project_name = data.projectName

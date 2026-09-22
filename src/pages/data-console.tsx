@@ -49,6 +49,7 @@ interface FormState {
   docRef: string
   lpoContractRef: string
   date: string
+  visitDate: string
   txn: string
   clientName: string
   projectName: string
@@ -71,6 +72,7 @@ function defaultForm(): FormState {
     docRef: '',
     lpoContractRef: '',
     date: today,
+    visitDate: '',
     txn: '',
     clientName: '',
     projectName: '',
@@ -91,6 +93,7 @@ function reportToForm(r: ServiceReport): FormState {
     docRef: r.docRef,
     lpoContractRef: r.lpoContractRef,
     date: r.date,
+    visitDate: r.visitDate ?? '',
     txn: r.txn,
     clientName: r.clientName,
     projectName: r.projectName,
@@ -180,6 +183,7 @@ export function DataConsole() {
       docRef: form.docRef.trim(),
       lpoContractRef: form.lpoContractRef.trim(),
       date: form.date,
+      visitDate: form.visitDate.trim() || undefined,
       txn: form.txn.trim(),
       clientName: form.clientName.trim(),
       projectName: form.projectName.trim(),
@@ -354,7 +358,11 @@ export function DataConsole() {
                   <Input type="date" value={form.date} onChange={(e) => updateField('date', e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label>TXN</Label>
+                  <Label>Visit Date</Label>
+                  <Input type="date" value={form.visitDate} onChange={(e) => updateField('visitDate', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>TXN (optional)</Label>
                   <Input value={form.txn} onChange={(e) => updateField('txn', e.target.value)} />
                 </div>
               </div>

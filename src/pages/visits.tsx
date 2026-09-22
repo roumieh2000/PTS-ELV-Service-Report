@@ -17,6 +17,7 @@ import {
 import { useVisitStore } from '@/stores/visitStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { useCrmClientStore } from '@/stores/crmClientStore'
 import { ProjectSelect } from '@/components/project-select'
 import type { Visit } from '@/types/visit'
 import type { User } from '@/types/auth'
@@ -135,11 +136,13 @@ export function Visits() {
       projectCode: form.projectCode || undefined,
       notes: form.notes.trim() || undefined,
     }
+    const matchedClient = useCrmClientStore.getState().findByName(data.clientName)
+    const saveData = { ...data, clientId: matchedClient ? matchedClient.id : undefined }
 
     if (editingId) {
-      await updateVisit(editingId, data)
+      await updateVisit(editingId, saveData)
     } else {
-      await addVisit(data)
+      await addVisit(saveData)
     }
     setDialogOpen(false)
   }

@@ -164,7 +164,10 @@ export function ReportDetail() {
           <div><span className="text-muted-foreground">Doc Ref:</span> <span className="font-medium">{report.docRef}</span></div>
           <div><span className="text-muted-foreground">LPO/Contract Ref:</span> <span className="font-medium">{report.lpoContractRef}</span></div>
           <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{new Date(report.date).toLocaleDateString()}</span></div>
-          <div><span className="text-muted-foreground">TXN:</span> <span className="font-medium">{report.txn}</span></div>
+          {report.visitDate && (
+            <div><span className="text-muted-foreground">Visit Date:</span> <span className="font-medium">{new Date(report.visitDate).toLocaleDateString()}</span></div>
+          )}
+          <div><span className="text-muted-foreground">TXN:</span> <span className="font-medium">{report.txn || '—'}</span></div>
         </CardContent>
       </Card>
 

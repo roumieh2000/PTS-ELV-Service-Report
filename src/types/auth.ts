@@ -11,6 +11,8 @@ export type Permission =
   | 'console:access'
   | 'console:write'
   | 'projects:manage'
+  | 'crm:view'
+  | 'crm:manage'
   | 'users:manage'
 
 export interface User {
@@ -24,8 +26,8 @@ export interface User {
 }
 
 export const rolePermissions: Record<Role, Permission[]> = {
-  admin: ['reports:read', 'reports:create', 'reports:edit', 'reports:delete', 'reports:export', 'reports:sign', 'visits:access', 'console:access', 'console:write', 'projects:manage', 'users:manage'],
-  staff: ['reports:read', 'reports:create', 'reports:edit', 'reports:export', 'reports:sign', 'visits:access', 'console:access', 'console:write'],
+  admin: ['reports:read', 'reports:create', 'reports:edit', 'reports:delete', 'reports:export', 'reports:sign', 'visits:access', 'console:access', 'console:write', 'projects:manage', 'crm:view', 'crm:manage', 'users:manage'],
+  staff: ['reports:read', 'reports:create', 'reports:edit', 'reports:export', 'reports:sign', 'visits:access', 'console:access', 'console:write', 'crm:view'],
   customer: ['reports:read', 'reports:export', 'reports:sign'],
 }
 
@@ -40,6 +42,8 @@ export const allPermissions: Permission[] = [
   'console:access',
   'console:write',
   'projects:manage',
+  'crm:view',
+  'crm:manage',
   'users:manage',
 ]
 
@@ -54,5 +58,7 @@ export const permissionLabels: Record<Permission, string> = {
   'console:access': 'Access Console',
   'console:write': 'Console Edit',
   'projects:manage': 'Manage Project Codes',
+  'crm:view': 'Access CRM',
+  'crm:manage': 'Manage CRM',
   'users:manage': 'Manage Users',
 }
