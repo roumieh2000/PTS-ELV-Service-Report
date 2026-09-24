@@ -1,9 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { SummaryCards } from '@/components/summary-cards'
-import { FilterBar } from '@/components/filter-bar'
+import { FilterBar, type ReportSort } from '@/components/filter-bar'
 import { ReportList } from '@/components/report-list'
 import { useReportStore } from '@/stores/reportStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -16,6 +16,7 @@ export function Dashboard() {
   const setSearchQuery = useReportStore((s) => s.setSearchQuery)
   const user = useAuthStore((s) => s.user)
   const hasPermission = useAuthStore((s) => s.hasPermission)
+  const [sort, setSort] = useState<ReportSort>('date-desc')
 
   const visibleReports = useMemo(() => {
     let list = reports
@@ -45,8 +46,23 @@ export function Dashboard() {
           r.docRef.toLowerCase().includes(q)
       )
     }
-    return list
-  }, [visibleReports, statusFilter, searchQuery])
+    return [...list].sort((a, b) => {
+      switch (sort) {
+        case 'date-asc':
+          return a.date.localeCompare(b.date)
+        case 'updated':
+          return b.updatedAt.localeCompare(a.updatedAt)
+        case 'created':
+          return b.createdAt.localeCompare(a.createdAt)
+        case 'docRef':
+          return a.docRef.localeCompare(b.docRef)
+        case 'client':
+          return a.clientName.localeCompare(b.clientName)
+        default:
+          return b.date.localeCompare(a.date)
+      }
+    })
+  }, [visibleReports, statusFilter, searchQuery, sort])
 
   return (
     <div className="space-y-6">
@@ -67,8 +83,10 @@ export function Dashboard() {
       <FilterBar
         statusFilter={statusFilter}
         searchQuery={searchQuery}
+        sort={sort}
         onStatusChange={setStatusFilter}
         onSearchChange={setSearchQuery}
+        onSortChange={setSort}
       />
 
       <ReportList reports={filtered} />

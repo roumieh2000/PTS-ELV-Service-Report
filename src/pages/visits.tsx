@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,6 +72,16 @@ function isUpcoming(v: Visit): boolean {
   return v.date > today || (v.date === today && v.time >= now.toTimeString().slice(0, 5))
 }
 
+type VisitSort = 'date-asc' | 'date-desc' | 'client' | 'person' | 'created'
+
+const visitSortOptions: { value: VisitSort; label: string }[] = [
+  { value: 'date-asc', label: 'Date (soonest first)' },
+  { value: 'date-desc', label: 'Date (latest first)' },
+  { value: 'client', label: 'Client A\u2013Z' },
+  { value: 'person', label: 'Person in Charge A\u2013Z' },
+  { value: 'created', label: 'Recently created' },
+]
+
 export function Visits() {
   const navigate = useNavigate()
   const visits = useVisitStore((s) => s.visits)
@@ -89,6 +99,24 @@ export function Visits() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [sort, setSort] = useState<VisitSort>('date-asc')
+
+  const sortedVisits = useMemo(() => {
+    return [...visits].sort((a, b) => {
+      switch (sort) {
+        case 'date-asc':
+          return `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)
+        case 'date-desc':
+          return `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`)
+        case 'client':
+          return a.clientName.localeCompare(b.clientName)
+        case 'person':
+          return a.personInCharge.localeCompare(b.personInCharge)
+        default:
+          return b.createdAt.localeCompare(a.createdAt)
+      }
+    })
+  }, [visits, sort])
 
   function openAdd() {
     setForm(defaultForm())
@@ -169,10 +197,22 @@ export function Visits() {
           <CalendarDays className="size-5 text-blue-600" />
           <h1 className="text-2xl font-bold">Daily Visits</h1>
         </div>
-        <Button onClick={openAdd}>
-          <Plus className="size-4" />
-          Add Visit
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={sort} onValueChange={(v) => v && setSort(v as VisitSort)}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              {visitSortOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={openAdd}>
+            <Plus className="size-4" />
+            Add Visit
+          </Button>
+        </div>
       </div>
 
       <Card className="overflow-hidden">
@@ -197,7 +237,7 @@ export function Visits() {
                   </td>
                 </tr>
               ) : (
-                visits.map((v) => (
+                sortedVisits.map((v) => (
                   <tr key={v.id} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="whitespace-nowrap px-3 py-2">
                       {new Date(v.date).toLocaleDateString()}
@@ -227,7 +267,7 @@ export function Visits() {
                             Create Report
                           </Button>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground">â€”</span>
                         )}
                       </td>
                     )}
