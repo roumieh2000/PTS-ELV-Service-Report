@@ -12,6 +12,7 @@ import { Visits } from '@/pages/visits'
 import { Projects } from '@/pages/projects'
 import { Crm } from '@/pages/crm'
 import { CrmClient } from '@/pages/crm-client'
+import { Assistant } from '@/pages/assistant'
 import { useReportStore } from '@/stores/reportStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useVisitStore } from '@/stores/visitStore'
@@ -55,6 +56,7 @@ export default function App() {
             <Route path="visits" element={<ProtectedRoute permission="visits:access"><Visits /></ProtectedRoute>} />
             <Route path="crm" element={<ProtectedRoute permission="crm:view"><Crm /></ProtectedRoute>} />
             <Route path="crm/:id" element={<ProtectedRoute permission="crm:view"><CrmClient /></ProtectedRoute>} />
+            <Route path="assistant" element={<ProtectedRoute permission="crm:view"><Assistant /></ProtectedRoute>} />
             <Route path="projects" element={<ProtectedRoute permission="projects:manage"><Projects /></ProtectedRoute>} />
             <Route path="users" element={<ProtectedRoute permission="users:manage"><UserManager /></ProtectedRoute>} />
           </Route>

@@ -19,8 +19,9 @@ import { useAuthStore } from '@/stores/authStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useCrmClientStore } from '@/stores/crmClientStore'
 import { ProjectSelect } from '@/components/project-select'
-import type { Visit } from '@/types/visit'
+import type { Visit, VisitStatus } from '@/types/visit'
 import type { User } from '@/types/auth'
+import { useCrmFollowUpStore } from '@/stores/crmFollowUpStore'
 import { CalendarDays, Plus, Pencil, Trash2, Save, FilePlus2, Eye } from 'lucide-react'
 import {
   Select,
@@ -41,7 +42,23 @@ interface FormState {
   personInCharge: string
   projectCode: string
   notes: string
+  status: VisitStatus
+  invoiceFollowup: string
 }
+
+const statusStyles: Record<VisitStatus, string> = {
+  Done: 'bg-emerald-100 text-emerald-800',
+  Pending: 'bg-amber-100 text-amber-800',
+  Cancelled: 'bg-red-100 text-red-800',
+}
+
+const invoiceOptions: { value: string; label: string }[] = [
+  { value: 'Invoice for completed works', label: 'Invoice for completed works' },
+  { value: 'Send quotation / proposal', label: 'Send quotation / proposal' },
+  { value: 'Follow up on payment', label: 'Follow up on payment' },
+  { value: 'Renew AMC', label: 'Renew AMC' },
+  { value: 'Submit warranty claim', label: 'Submit warranty claim' },
+]
 
 function defaultForm(): FormState {
   const today = new Date().toISOString().slice(0, 10)
@@ -52,6 +69,8 @@ function defaultForm(): FormState {
     personInCharge: '',
     projectCode: '',
     notes: '',
+    status: 'Pending',
+    invoiceFollowup: '',
   }
 }
 
@@ -63,6 +82,8 @@ function visitToForm(v: Visit): FormState {
     personInCharge: v.personInCharge,
     projectCode: v.projectCode ?? '',
     notes: v.notes ?? '',
+    status: v.status ?? 'Pending',
+    invoiceFollowup: v.invoiceFollowup ?? '',
   }
 }
 
@@ -163,14 +184,38 @@ export function Visits() {
       personInCharge: form.personInCharge.trim(),
       projectCode: form.projectCode || undefined,
       notes: form.notes.trim() || undefined,
+      status: form.status,
+      invoiceFollowup: form.invoiceFollowup || undefined,
     }
     const matchedClient = useCrmClientStore.getState().findByName(data.clientName)
     const saveData = { ...data, clientId: matchedClient ? matchedClient.id : undefined }
 
+    let savedId = editingId
     if (editingId) {
       await updateVisit(editingId, saveData)
     } else {
-      await addVisit(saveData)
+      const created = await addVisit(saveData)
+      savedId = created?.id ?? null
+    }
+
+    if (savedId) {
+      const followUps = useCrmFollowUpStore.getState().followups.filter((f) => f.visitId === savedId)
+      if (form.invoiceFollowup && matchedClient) {
+        if (followUps.length === 0) {
+          const due = new Date(`${form.date}T00:00:00`)
+          due.setDate(due.getDate() + 7)
+          await useCrmFollowUpStore.getState().addFollowUp({
+            clientId: matchedClient.id,
+            visitId: savedId,
+            assignedTo: form.personInCharge.trim(),
+            task: form.invoiceFollowup,
+            dueDate: due.toISOString().slice(0, 10),
+            status: 'Open',
+          })
+        }
+      } else if (!form.invoiceFollowup) {
+        for (const f of followUps) await useCrmFollowUpStore.getState().deleteFollowUp(f.id)
+      }
     }
     setDialogOpen(false)
   }
@@ -222,6 +267,7 @@ export function Visits() {
               <tr className="border-b bg-muted/50 text-left text-xs font-medium text-muted-foreground">
                 <th className="px-3 py-2">Date</th>
                 <th className="px-3 py-2">Time</th>
+                <th className="w-32 px-3 py-2">Status</th>
                 <th className="px-3 py-2">Client</th>
                 <th className="px-3 py-2">Person in Charge</th>
                 <th className="px-3 py-2">Project</th>
@@ -232,7 +278,7 @@ export function Visits() {
             <tbody>
               {visits.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-12 text-center text-neutral-500">
+                  <td colSpan={8} className="px-3 py-12 text-center text-neutral-500">
                     No visits scheduled yet. Click "Add Visit" to create one.
                   </td>
                 </tr>
@@ -246,6 +292,31 @@ export function Visits() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{v.time}</td>
+                    <td className="px-3 py-2">
+                      <Select
+                        value={v.status}
+                        onValueChange={(val) => val && updateVisit(v.id, { status: val as VisitStatus })}
+                      >
+                        <SelectTrigger
+                          className={`h-7 w-28 px-2 text-xs font-medium ${statusStyles[v.status]}`}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Done" className="text-emerald-700">Done</SelectItem>
+                          <SelectItem value="Pending" className="text-amber-700">Pending</SelectItem>
+                          <SelectItem value="Cancelled" className="text-red-700">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {v.invoiceFollowup && (
+                        <span
+                          title={v.invoiceFollowup}
+                          className="mt-1 block w-fit rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+                        >
+                          Invoice follow-up
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 font-medium">{v.clientName}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{v.personInCharge}</td>
                     <td className="max-w-[220px] truncate px-3 py-2 font-mono text-xs" title={v.projectCode}>
@@ -340,6 +411,35 @@ export function Visits() {
             <div className="space-y-1">
               <Label>Project Code (optional)</Label>
               <ProjectSelect value={form.projectCode} onChange={handleProjectSelect} allowNone />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>Status</Label>
+                <Select value={form.status} onValueChange={(v) => updateField('status', (v ?? 'Pending') as VisitStatus)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Done" className="text-emerald-700">Done</SelectItem>
+                    <SelectItem value="Pending" className="text-amber-700">Pending</SelectItem>
+                    <SelectItem value="Cancelled" className="text-red-700">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Invoice Follow-up (optional)</Label>
+                <Select value={form.invoiceFollowup || 'none'} onValueChange={(v) => updateField('invoiceFollowup', v === 'none' ? '' : v ?? '')}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select task..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {invoiceOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-1">
               <Label>Notes (optional)</Label>

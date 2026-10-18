@@ -27,6 +27,7 @@ import { useVisitStore } from '@/stores/visitStore'
 import { useReportStore } from '@/stores/reportStore'
 import { useAuthStore } from '@/stores/authStore'
 import type { CrmClient, CrmFollowUp, FollowUpStatus } from '@/types/crm'
+import type { VisitStatus } from '@/types/visit'
 import type { User } from '@/types/auth'
 import {
   ArrowLeft,
@@ -48,6 +49,7 @@ const statusStyles: Record<string, string> = {
   'In Progress': 'bg-blue-100 text-blue-800',
   Done: 'bg-emerald-100 text-emerald-800',
   Cancelled: 'bg-red-100 text-red-800',
+  Pending: 'bg-amber-100 text-amber-800',
 }
 
 const allStatuses: FollowUpStatus[] = ['Open', 'In Progress', 'Done', 'Cancelled']
@@ -99,7 +101,7 @@ function clientToForm(c: CrmClient): ClientForm {
 
 type TimelineItem =
   | { kind: 'followup'; f: CrmFollowUp; sortKey: string }
-  | { kind: 'visit'; clientName: string; date: string; time: string; personInCharge: string; notes?: string; projectCode?: string; sortKey: string }
+  | { kind: 'visit'; clientName: string; date: string; time: string; personInCharge: string; notes?: string; projectCode?: string; status: VisitStatus; invoiceFollowup?: string; sortKey: string }
   | { kind: 'report'; id: string; docRef: string; date: string; sortKey: string }
 
 export function CrmClient() {
@@ -153,6 +155,8 @@ export function CrmClient() {
       personInCharge: v.personInCharge,
       notes: v.notes,
       projectCode: v.projectCode,
+      status: v.status,
+      invoiceFollowup: v.invoiceFollowup,
       sortKey: `${v.date}T${v.time}`,
     })),
     ...clientReports.map((r): TimelineItem => ({ kind: 'report', id: r.id, docRef: r.docRef, date: r.date, sortKey: `${r.date}T` })),
@@ -345,19 +349,28 @@ export function CrmClient() {
                 </Card>
               )
             }
-            if (item.kind === 'visit') {
+if (item.kind === 'visit') {
+              const vStatus: VisitStatus = item.status ?? 'Pending'
               return (
                 <Card key={`${item.kind}-${item.sortKey}-${i}`}>
                   <CardContent className="space-y-2">
                     <div className="flex items-start gap-2">
                       <CalendarDays className="mt-0.5 size-4 shrink-0 text-blue-600" />
-                      <div>
-                        <p className="text-sm font-medium">
-                          Visit Â· {formatDate(item.date)} {item.time}
-                        </p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">
+                            Visit · {formatDate(item.date)} {item.time}
+                          </p>
+                          <Badge className={`text-[10px] ${statusStyles[vStatus]}`}>{vStatus}</Badge>
+                          {item.invoiceFollowup && (
+                            <Badge className="bg-sky-100 text-[10px] text-sky-700 hover:bg-sky-100" title={item.invoiceFollowup}>
+                              Invoice
+                            </Badge>
+                          )}
+                        </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {item.clientName} Â· {item.personInCharge}
-                          {item.projectCode ? ` Â· ${item.projectCode}` : ''}
+                          {item.clientName} · {item.personInCharge}
+                          {item.projectCode ? ` · ${item.projectCode}` : ''}
                         </p>
                         {item.notes && <p className="mt-1 text-sm">{item.notes}</p>}
                       </div>

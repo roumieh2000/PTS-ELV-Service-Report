@@ -1,3 +1,5 @@
+export type VisitStatus = 'Done' | 'Pending' | 'Cancelled'
+
 export interface Visit {
   id: string
   date: string
@@ -8,6 +10,8 @@ export interface Visit {
   notes?: string
   reportId?: string
   clientId?: string
+  status: VisitStatus
+  invoiceFollowup?: string
   createdAt: string
   updatedAt: string
 }

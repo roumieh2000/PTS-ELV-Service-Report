@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate } from 'react-router'
-import { FileText, CalendarDays, Database, FolderOpen, LogOut, Shield, Users } from 'lucide-react'
+import { FileText, CalendarDays, Database, FolderOpen, LogOut, Shield, Users, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/stores/authStore'
@@ -50,6 +50,12 @@ export function Layout() {
                   <Link to="/crm" className="flex items-center gap-1.5 text-sm text-neutral-500 no-underline transition-colors hover:text-neutral-900">
                     <Users className="size-4" />
                     <span className="hidden sm:inline">CRM</span>
+                  </Link>
+                )}
+                {hasPermission('crm:view') && (
+                  <Link to="/assistant" className="flex items-center gap-1.5 text-sm text-neutral-500 no-underline transition-colors hover:text-neutral-900">
+                    <Bot className="size-4" />
+                    <span className="hidden sm:inline">Assistant</span>
                   </Link>
                 )}
                 {hasPermission('projects:manage') && (

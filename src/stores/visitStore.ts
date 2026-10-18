@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Visit } from '@/types/visit'
+import type { Visit, VisitStatus } from '@/types/visit'
 import { supabase } from '@/lib/supabase'
 import { log } from '@/lib/logger'
 
@@ -23,6 +23,8 @@ interface VisitRow {
   notes: string | null
   report_id: string | null
   client_id: string | null
+  status: string
+  invoice_followup: string | null
   created_at: string
   updated_at: string
 }
@@ -38,6 +40,8 @@ function toVisit(row: VisitRow): Visit {
     notes: row.notes ?? undefined,
     reportId: row.report_id ?? undefined,
     clientId: row.client_id ?? undefined,
+    status: (row.status as VisitStatus) ?? 'Pending',
+    invoiceFollowup: row.invoice_followup ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -72,6 +76,8 @@ export const useVisitStore = create<VisitStore>((set) => ({
       project_code: data.projectCode ?? null,
       notes: data.notes ?? null,
       client_id: data.clientId ?? null,
+      status: data.status ?? 'Pending',
+      invoice_followup: data.invoiceFollowup || null,
       created_at: now,
       updated_at: now,
     }
@@ -94,6 +100,8 @@ export const useVisitStore = create<VisitStore>((set) => ({
     if (data.projectCode !== undefined) patch.project_code = data.projectCode || null
     if (data.notes !== undefined) patch.notes = data.notes || null
     if (data.clientId !== undefined) patch.client_id = data.clientId || null
+    if (data.status !== undefined) patch.status = data.status
+    if (data.invoiceFollowup !== undefined) patch.invoice_followup = data.invoiceFollowup || null
 
     const { error } = await supabase.from('visits').update(patch).eq('id', id)
     if (error) {

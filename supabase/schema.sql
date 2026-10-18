@@ -261,3 +261,69 @@ update public.users
 set permissions = (select array_agg(distinct p) from unnest(permissions || array['crm:view']) as p)
 where role = 'staff'
   and not permissions @> array['crm:view'];
+
+-- ---------- VISIT STATUS + INVOICE FOLLOW-UP ----------
+alter table public.visits add column if not exists status text not null default 'Pending';
+alter table public.visits add column if not exists invoice_followup text;
+
+-- ============================================================
+-- AGENT: quotes (created by the assistant, downloaded as xlsx)
+-- ============================================================
+create table if not exists public.quotes (
+  id uuid primary key default gen_random_uuid(),
+  quote_ref text not null unique,
+  client_name text not null,
+  project_name text not null default '',
+  prepared_by text not null default '',
+  currency text not null default 'AED',
+  vat_percent numeric not null default 5,
+  discount numeric not null default 0,
+  notes text not null default '',
+  items jsonb not null default '[]'::jsonb,
+  totals jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.quotes enable row level security;
+
+drop policy if exists "anon quotes select" on public.quotes;
+create policy "anon quotes select" on public.quotes
+  for select using (true);
+drop policy if exists "anon quotes insert" on public.quotes;
+create policy "anon quotes insert" on public.quotes
+  for insert with check (true);
+drop policy if exists "anon quotes update" on public.quotes;
+create policy "anon quotes update" on public.quotes
+  for update using (true) with check (true);
+drop policy if exists "anon quotes delete" on public.quotes;
+create policy "anon quotes delete" on public.quotes
+  for delete using (true);
+
+-- ============================================================
+-- AGENT: plans (growth strategy mind maps, rendered in the app)
+-- content: { "label": "...", "hours": 12, "children": [...] }
+-- ============================================================
+create table if not exists public.plans (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  content jsonb not null,
+  created_by text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.plans enable row level security;
+
+drop policy if exists "anon plans select" on public.plans;
+create policy "anon plans select" on public.plans
+  for select using (true);
+drop policy if exists "anon plans insert" on public.plans;
+create policy "anon plans insert" on public.plans
+  for insert with check (true);
+drop policy if exists "anon plans update" on public.plans;
+create policy "anon plans update" on public.plans
+  for update using (true) with check (true);
+drop policy if exists "anon plans delete" on public.plans;
+create policy "anon plans delete" on public.plans
+  for delete using (true);
