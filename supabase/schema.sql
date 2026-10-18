@@ -266,6 +266,27 @@ where role = 'staff'
 alter table public.visits add column if not exists status text not null default 'Pending';
 alter table public.visits add column if not exists invoice_followup text;
 
+-- ---------- LOGIN LOG ----------
+create table if not exists public.login_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  username text not null,
+  login_at timestamptz not null default now(),
+  ip text
+);
+
+alter table public.login_logs enable row level security;
+
+drop policy if exists "anon login_logs select" on public.login_logs;
+create policy "anon login_logs select" on public.login_logs
+  for select using (true);
+drop policy if exists "anon login_logs insert" on public.login_logs;
+create policy "anon login_logs insert" on public.login_logs
+  for insert with check (true);
+
+create index if not exists login_logs_user_id_idx on public.login_logs(user_id);
+create index if not exists login_logs_login_at_idx on public.login_logs(login_at);
+
 -- ============================================================
 -- AGENT: quotes (created by the assistant, downloaded as xlsx)
 -- ============================================================

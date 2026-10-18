@@ -91,6 +91,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     localStorage.setItem(SESSION_KEY, JSON.stringify(found))
     set({ user: found })
     log('info', 'Login success', { username, role: found.role })
+    void fetch('/api/login-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: found.id, username: found.username }),
+    }).catch(() => {})
     return true
   },
 

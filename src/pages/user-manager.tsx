@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { supabase } from '@/lib/supabase'
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,18 @@ function userToForm(u: User): FormState {
   }
 }
 
+interface LoginRow {
+  user_id: string
+  login_at: string
+  ip: string | null
+}
+
+interface LoginStats {
+  lastLogin: string | null
+  logins30d: number
+  lastIp: string | null
+}
+
 export function UserManager() {
   const users = useAuthStore((s) => s.users)
   const addUser = useAuthStore((s) => s.addUser)
@@ -74,6 +87,30 @@ export function UserManager() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [loginStats, setLoginStats] = useState<Record<string, LoginStats>>({})
+
+  useEffect(() => {
+    async function loadLoginStats() {
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const { data } = await supabase
+        .from('login_logs')
+        .select('user_id, login_at, ip')
+        .order('login_at', { ascending: false })
+      if (!data) return
+      const stats: Record<string, LoginStats> = {}
+      for (const row of data as LoginRow[]) {
+        const s = stats[row.user_id] ?? { lastLogin: null, logins30d: 0, lastIp: null }
+        if (!s.lastLogin) {
+          s.lastLogin = row.login_at
+          s.lastIp = row.ip
+        }
+        if (row.login_at >= cutoff) s.logins30d++
+        stats[row.user_id] = s
+      }
+      setLoginStats(stats)
+    }
+    void loadLoginStats()
+  }, [users.length])
 
   function openAdd() {
     setForm(defaultForm())
@@ -158,6 +195,7 @@ export function UserManager() {
                 <th className="px-3 py-2">Username</th>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Role</th>
+                <th className="px-3 py-2">Login Activity</th>
                 <th className="px-3 py-2">Permissions</th>
                 <th className="w-24 px-3 py-2">Actions</th>
               </tr>
@@ -165,13 +203,14 @@ export function UserManager() {
             <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-12 text-center text-neutral-500">
+                  <td colSpan={6} className="px-3 py-12 text-center text-neutral-500">
                     No users yet.
                   </td>
                 </tr>
               ) : (
                 users.map((u) => {
                   const perms = u.permissions ?? rolePermissions[u.role]
+                  const stats = loginStats[u.id]
                   return (
                     <tr key={u.id} className="border-b last:border-0 hover:bg-muted/30">
                       <td className="px-3 py-2 font-mono text-xs">{u.username}</td>
@@ -181,6 +220,23 @@ export function UserManager() {
                       </td>
                       <td className="px-3 py-2">
                         <Badge className={`text-[10px] ${roleBadge[u.role]}`}>{u.role}</Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        {stats ? (
+                          <div className="space-y-0.5 text-xs">
+                            <p className="text-muted-foreground">
+                              Last: {stats.lastLogin ? new Date(stats.lastLogin).toLocaleString() : '\u2014'}
+                            </p>
+                            <p>
+                              <Badge className="bg-blue-100 text-blue-800 text-[10px]">{stats.logins30d} logins / 30d</Badge>
+                            </p>
+                            {stats.lastIp && (
+                              <p className="text-muted-foreground font-mono text-[10px]">IP: {stats.lastIp}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">No logins yet</span>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1">
