@@ -98,16 +98,18 @@ It runs on a Vercel serverless function (`/api/agent`) using **free** LLM APIs, 
    | `GROQ_API_KEY` | no | Fallback LLM (30 req/min, 1k req/day free) |
    | `QUOTE_COMPANY_NAME` | no | Company name on quote Excel (default "ELV Services") |
    | `CRON_SECRET` | no | Protects the daily digest cron (Vercel sends it automatically if set) |
-   | `GEMINI_MODEL` / `GROQ_MODEL` | no | Override default models (`gemini-2.5-flash` / `llama-3.3-70b-versatile`) |
+   | `GEMINI_MODEL` / `GROQ_MODEL` | no | Override default models (`gemini-3.8-flash` / `llama-3.3-70b-versatile`) |
+   | `LLM_REASONING_EFFORT` | no | Gemini thinking level, default `low` (fast replies, ~2-4s); set `off` for default |
 
 4. **Deploy** — push to Vercel; `/api/*` functions build automatically. A daily follow-up digest cron (06:00 UTC) is defined in `vercel.json` and shown as chips on the Assistant page.
 
 ### Local development
 
-`npm run dev` serves the frontend only. To exercise the API functions locally, use [`vercel dev`](https://vercel.com/docs/cli/dev) with the same env vars. Type-check the API with `npm run typecheck:api`.
+`npm run dev` serves the frontend **and** the `/api/*` functions (a Vite plugin runs the same handlers locally). Put `GEMINI_API_KEY` (and optionally `GROQ_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`) in `.env.local` — non-`VITE_` names are fine, the dev server loads them for the API too. `vercel dev` is not required. Type-check the API with `npm run typecheck:api`.
 
 ### Notes
 
 - The assistant is visible to users with CRM access (`crm:view`).
-- Free-tier rate limits apply (Gemini quotas are per project, shown in AI Studio). Gemini free-tier content may be used by Google to improve its services — avoid pasting highly sensitive data.
+- Free-tier rate limits apply. If you see a **429 quota error**, the model is temporarily rate-limited: per-minute limits recover within a minute (the agent auto-retries once); daily limits reset at midnight Pacific. Check usage at [ai.dev/rate-limit](https://ai.dev/rate-limit). A free `GROQ_API_KEY` as a second provider avoids downtime during Gemini quota windows.
+- Gemini free-tier content may be used by Google to improve its services — avoid pasting highly sensitive data.
 - API security currently matches the rest of the app (anon Supabase key); harden with real auth before exposing publicly.

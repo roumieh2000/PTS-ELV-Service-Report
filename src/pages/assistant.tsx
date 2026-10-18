@@ -218,16 +218,31 @@ export function Assistant() {
           user: { name: user?.name ?? '', username: user?.username ?? '' },
         }),
       })
-      const data = (await res.json()) as AgentReply & { error?: string }
-      if (!res.ok) {
+      const text = await res.text()
+      let data: (AgentReply & { error?: string }) | null = null
+      try {
+        data = JSON.parse(text) as AgentReply & { error?: string }
+      } catch {
+        data = null
+      }
+      if (!res.ok || !data) {
+        const looksLikeHtml = /<\s*(!doctype|html)/i.test(text)
+        let msg: string
+        if (!text.trim()) {
+          msg = `Empty response from the server (HTTP ${res.status}).`
+        } else if (looksLikeHtml) {
+          msg =
+            res.status === 404
+              ? 'Assistant API not found (404). Run `npm run dev` locally (it now includes the API) or deploy to Vercel.'
+              : `The server returned a web page instead of the API (HTTP ${res.status}). The function may have crashed or timed out — check the Vercel function logs.`
+        } else if (!data) {
+          msg = `Assistant API returned non-JSON (HTTP ${res.status}): ${text.slice(0, 150)}`
+        } else {
+          msg = data.error ?? 'Something went wrong. Check that GEMINI_API_KEY is set in the environment.'
+        }
         setMessages((prev) => [
           ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: data.error ?? 'Something went wrong. Check that the LLM API key is set on Vercel.',
-            error: true,
-          },
+          { id: crypto.randomUUID(), role: 'assistant', content: msg, error: true },
         ])
         return
       }
