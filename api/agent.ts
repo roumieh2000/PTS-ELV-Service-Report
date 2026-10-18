@@ -1,7 +1,7 @@
-import { chatComplete, type ChatMsg } from './_lib/llm'
-import { systemPrompt } from './_lib/prompt'
-import { executeTool, toolDefs, type AgentCtx } from './_lib/tools'
-import { json, methodNotAllowed, type VercelRequest, type VercelResponse } from './_lib/http'
+import { chatComplete, type ChatMsg } from './_lib/llm.js'
+import { systemPrompt } from './_lib/prompt.js'
+import { executeTool, toolDefs, type AgentCtx } from './_lib/tools.js'
+import { json, methodNotAllowed, type VercelRequest, type VercelResponse } from './_lib/http.js'
 
 export const maxDuration = 60
 

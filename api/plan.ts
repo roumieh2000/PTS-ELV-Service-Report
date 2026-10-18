@@ -1,5 +1,5 @@
-import { supabase } from './_lib/supabase'
-import { getQuery, json, methodNotAllowed, type VercelRequest, type VercelResponse } from './_lib/http'
+import { supabase } from './_lib/supabase.js'
+import { getQuery, json, methodNotAllowed, type VercelRequest, type VercelResponse } from './_lib/http.js'
 
 interface PlanRow {
   id: string

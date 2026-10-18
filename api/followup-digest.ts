@@ -1,5 +1,5 @@
-import { supabase } from './_lib/supabase'
-import { getHeader, json, type VercelRequest, type VercelResponse } from './_lib/http'
+import { supabase } from './_lib/supabase.js'
+import { getHeader, json, type VercelRequest, type VercelResponse } from './_lib/http.js'
 
 interface FollowUpRow {
   id: string

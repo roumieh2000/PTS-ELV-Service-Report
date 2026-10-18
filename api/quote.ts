@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs'
-import { supabase } from './_lib/supabase'
-import { getQuery, json, methodNotAllowed, type VercelRequest, type VercelResponse } from './_lib/http'
-import { quoteTotals, type QuoteItem, type QuoteTotals } from './_lib/tools'
+import { supabase } from './_lib/supabase.js'
+import { getQuery, json, methodNotAllowed, type VercelRequest, type VercelResponse } from './_lib/http.js'
+import { quoteTotals, type QuoteItem, type QuoteTotals } from './_lib/tools.js'
 
 export const maxDuration = 30
 

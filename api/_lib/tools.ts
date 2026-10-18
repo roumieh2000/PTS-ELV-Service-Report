@@ -1,5 +1,5 @@
-import { supabase } from './supabase'
-import type { ToolDef } from './llm'
+import { supabase } from './supabase.js'
+import type { ToolDef } from './llm.js'
 
 export interface ToolResult {
   summary: string
