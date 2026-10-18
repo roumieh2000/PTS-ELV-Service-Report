@@ -98,7 +98,7 @@ It runs on a Vercel serverless function (`/api/agent`) using **free** LLM APIs, 
    | `GROQ_API_KEY` | no | Fallback LLM (30 req/min, 1k req/day free) |
    | `QUOTE_COMPANY_NAME` | no | Company name on quote Excel (default "ELV Services") |
    | `CRON_SECRET` | no | Protects the daily digest cron (Vercel sends it automatically if set) |
-   | `GEMINI_MODEL` / `GROQ_MODEL` | no | Override default models (`gemini-3.8-flash` / `llama-3.3-70b-versatile`) |
+   | `GEMINI_MODEL` / `GROQ_MODEL` | no | Override default models (`gemini-3.5-flash-lite` / `llama-3.3-70b-versatile`) |
    | `LLM_REASONING_EFFORT` | no | Gemini thinking level, default `low` (fast replies, ~2-4s); set `off` for default |
 
 4. **Deploy** — push to Vercel; `/api/*` functions build automatically. A daily follow-up digest cron (06:00 UTC) is defined in `vercel.json` and shown as chips on the Assistant page.
@@ -110,6 +110,6 @@ It runs on a Vercel serverless function (`/api/agent`) using **free** LLM APIs, 
 ### Notes
 
 - The assistant is visible to users with CRM access (`crm:view`).
-- Free-tier rate limits apply. If you see a **429 quota error**, the model is temporarily rate-limited: per-minute limits recover within a minute (the agent auto-retries once); daily limits reset at midnight Pacific. Check usage at [ai.dev/rate-limit](https://ai.dev/rate-limit). A free `GROQ_API_KEY` as a second provider avoids downtime during Gemini quota windows.
+- Free-tier rate limits apply. The default `gemini-3.5-flash-lite` allows ~500 requests/day (the standard Flash models only allow ~20). If you see a **429 quota error**, the model is temporarily rate-limited: per-minute limits recover within a minute (the agent auto-retries once); daily limits reset at midnight Pacific. Check usage at [ai.dev/rate-limit](https://ai.dev/rate-limit). A free `GROQ_API_KEY` as a second provider avoids downtime during Gemini quota windows.
 - Gemini free-tier content may be used by Google to improve its services — avoid pasting highly sensitive data.
 - API security currently matches the rest of the app (anon Supabase key); harden with real auth before exposing publicly.
