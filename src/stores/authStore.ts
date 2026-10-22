@@ -46,6 +46,29 @@ function getUserPermissions(user: User): Permission[] {
   return user.permissions ?? rolePermissions[user.role]
 }
 
+async function recordLoginActivity(user: User): Promise<void> {
+  try {
+    const res = await fetch('/api/login-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, username: user.username }),
+    })
+    const type = res.headers.get('content-type') ?? ''
+    if (!res.ok || !type.includes('application/json')) {
+      throw new Error(`login-log endpoint unavailable (${res.status})`)
+    }
+  } catch {
+    try {
+      const { error } = await supabase
+        .from('login_logs')
+        .insert({ user_id: user.id, username: user.username, ip: null })
+      if (error) log('warn', 'Failed to record login activity', error)
+    } catch (err) {
+      log('warn', 'Failed to record login activity', err)
+    }
+  }
+}
+
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: (() => {
     try {
@@ -91,11 +114,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     localStorage.setItem(SESSION_KEY, JSON.stringify(found))
     set({ user: found })
     log('info', 'Login success', { username, role: found.role })
-    void fetch('/api/login-log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: found.id, username: found.username }),
-    }).catch(() => {})
+    void recordLoginActivity(found)
     return true
   },
 

@@ -110,6 +110,8 @@ export function UserManager() {
       setLoginStats(stats)
     }
     void loadLoginStats()
+    const timer = setInterval(() => void loadLoginStats(), 30000)
+    return () => clearInterval(timer)
   }, [users.length])
 
   function openAdd() {
