@@ -14,7 +14,7 @@ import { Crm } from '@/pages/crm'
 import { CrmClient } from '@/pages/crm-client'
 import { Assistant } from '@/pages/assistant'
 import { useReportStore } from '@/stores/reportStore'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, ensureLoginRecorded } from '@/stores/authStore'
 import { useVisitStore } from '@/stores/visitStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useCrmClientStore } from '@/stores/crmClientStore'
@@ -27,6 +27,7 @@ function AppInit() {
   const loadProjects = useProjectStore((s) => s.loadProjects)
   const loadCrmClients = useCrmClientStore((s) => s.loadClients)
   const loadFollowups = useCrmFollowUpStore((s) => s.loadFollowups)
+  const user = useAuthStore((s) => s.user)
 
   useEffect(() => {
     loadReports()
@@ -36,6 +37,10 @@ function AppInit() {
     loadCrmClients()
     loadFollowups()
   }, [loadReports, loadUsers, loadVisits, loadProjects, loadCrmClients, loadFollowups])
+
+  useEffect(() => {
+    if (user) void ensureLoginRecorded(user)
+  }, [user])
 
   return null
 }

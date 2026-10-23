@@ -69,6 +69,19 @@ async function recordLoginActivity(user: User): Promise<void> {
   }
 }
 
+export async function ensureLoginRecorded(user: User): Promise<void> {
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
+  const { data } = await supabase
+    .from('login_logs')
+    .select('id')
+    .eq('user_id', user.id)
+    .gte('login_at', startOfDay.toISOString())
+    .limit(1)
+  if (data && data.length > 0) return
+  await recordLoginActivity(user)
+}
+
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: (() => {
     try {
@@ -100,6 +113,31 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   login: async (username, password) => {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+      const type = res.headers.get('content-type') ?? ''
+      if (type.includes('application/json')) {
+        if (res.status === 401) {
+          log('warn', 'Login failed', { username })
+          return false
+        }
+        const payload = (await res.json()) as { user?: UserRow }
+        if (res.ok && payload.user) {
+          const found = toUser(payload.user)
+          localStorage.setItem(SESSION_KEY, JSON.stringify(found))
+          set({ user: found })
+          log('info', 'Login success', { username, role: found.role })
+          return true
+        }
+      }
+    } catch {
+      log('warn', 'Login API unavailable, using direct login')
+    }
+
     const { data } = await supabase
       .from('users')
       .select('*')
